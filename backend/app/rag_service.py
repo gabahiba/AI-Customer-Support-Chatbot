@@ -1,47 +1,68 @@
 """
-خدمة RAG: مسؤولة عن استخراج النصوص من PDF، تقطيعها،
-تخزينها في ChromaDB، واسترجاع القطع ذات الصلة.
+خدمة RAG خفيفة باستخدام fastembed + SQLite
+بدلاً من ChromaDB (الضخم) لتوفير الذاكرة.
 """
 
 import os
 import uuid
+import json
+import sqlite3
 import asyncio
+import numpy as np
 from typing import List, Optional
-
-# مكتبات استخراج النص من PDF
 import pypdf
-
-# مكتبات التضمين (Embedding) والمتجهات
-from sentence_transformers import SentenceTransformer
-import chromadb
+from fastembed import TextEmbedding
 
 # ================================================
-# 1. تهيئة نموذج التضمين (يعمل محلياً، مجاني، سريع)
+# 1. تهيئة SQLite (للتخزين المحلي)
 # ================================================
-# لماذا هذا النموذج؟ لأنه خفيف (80 ميجابايت) ويعطي نتائج جيدة جداً
-# للغة العربية والإنجليزية. لا يحتاج إلى مفتاح API.
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+DB_PATH = "./rag_data.db"
+
+def get_db_connection():
+    """إنشاء اتصال بقاعدة بيانات SQLite"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    """إنشاء جدول التضمينات إذا لم يكن موجوداً"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id TEXT PRIMARY KEY,
+            chunk TEXT NOT NULL,
+            embedding BLOB NOT NULL,
+            metadata TEXT
+        )
+    """)
+    # إضافة فهرس لتسريع البحث (اختياري)
+    conn.commit()
+    conn.close()
+
+# استدعاء التهيئة عند تحميل الملف
+init_db()
 
 # ================================================
-# 2. تهيئة اتصال ChromaDB (تخزين المتجهات)
+# 2. تهيئة نموذج التضمين (يعمل بـ ONNX، خفيف جداً)
 # ================================================
-# PersistentClient يعني أن البيانات تُحفظ على القرص الصلب
-# في مجلد "chroma_db" حتى بعد إيقاف الخادم.
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
+# هذا النموذج يستهلك حوالي 80 ميجابايت فقط، ولا يحتاج إلى PyTorch.
+embedding_model = TextEmbedding(model_name="all-MiniLM-L6-v2")
 
-# اسم "المجموعة" (Collection) التي سنخزن فيها الملفات.
-# يمكننا لاحقاً إنشاء عدة مجموعات لمشاريع مختلفة.
-COLLECTION_NAME = "company_docs"
-collection = chroma_client.get_or_create_collection(name=COLLECTION_NAME)
+def get_embedding(text: str) -> List[float]:
+    """
+    توليد تضمين (متجه) للنص باستخدام fastembed
+    """
+    # fastembed يولد مصفوفة numpy
+    embeddings = list(embedding_model.embed([text]))
+    return embeddings[0].tolist()
 
 # ================================================
-# 3. الدوال المساعدة (استخراج النص وتقطيعه)
+# 3. دوال استخراج النص وتقطيعه (نفسها كما كانت)
 # ================================================
 
 def extract_text_from_pdf(file_path: str) -> str:
-    """
-    تفتح ملف PDF وتستخرج كل النصوص منه، صفحة صفحة.
-    """
+    """استخراج النص من ملف PDF"""
     reader = pypdf.PdfReader(file_path)
     full_text = ""
     for page in reader.pages:
@@ -51,108 +72,110 @@ def extract_text_from_pdf(file_path: str) -> str:
     return full_text
 
 def split_text_into_chunks(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
-    """
-    تقسم النص الطويل إلى قطع صغيرة (Chunks).
-    - chunk_size: حجم القطعة بالحروف.
-    - overlap: عدد الحروف المتداخلة بين قطعتين (لضمان عدم فقدان السياق).
-    """
+    """تقطيع النص إلى أجزاء صغيرة"""
     chunks = []
     start = 0
     text_length = len(text)
-    
     while start < text_length:
         end = min(start + chunk_size, text_length)
         chunk = text[start:end]
         chunks.append(chunk)
-        # نبدأ القطعة التالية قبل نهاية القطعة الحالية بـ "overlap"
         start += (chunk_size - overlap)
-    
     return chunks
 
 # ================================================
 # 4. الدوال الأساسية (الفهرسة والاسترجاع)
 # ================================================
 
-def get_embedding(text: str) -> List[float]:
-    """
-    تحويل النص إلى قائمة من الأرقام (متجه).
-    هذه الأرقام تمثل "معنى" النص.
-    """
-    return embedding_model.encode(text).tolist()
-
 async def index_pdf(file_path: str) -> int:
     """
-    الدالة الرئيسية لرفع ملف PDF:
-    - تستخرج النص.
-    - تقطعه.
-    - تحوله إلى متجهات.
-    - تخزنه في ChromaDB.
-    
-    تعيد عدد القطع المخزنة.
+    فهرسة ملف PDF: استخراج النص، تقطيعه، توليد التضمينات، وتخزينها في SQLite.
     """
-    # 1. استخراج النص (هذه عملية ثقيلة، ننفذها في خيط منفصل)
+    # 1. استخراج النص (في خيط منفصل لأنها عملية ثقيلة)
     text = await asyncio.to_thread(extract_text_from_pdf, file_path)
-    
     if not text.strip():
-        raise ValueError("الملف فارغ أو لا يحتوي على نص قابل للقراءة.")
-    
+        raise ValueError("الملف فارغ أو لا يحتوي على نص.")
+
     # 2. تقطيع النص
     chunks = split_text_into_chunks(text)
-    
     if not chunks:
         raise ValueError("لم يتم استخراج أي نص من الملف.")
-    
-    # 3. تحويل كل قطعة إلى متجه (عملية ثقيلة، في خيط منفصل)
-    # سنقوم بتوليد معرف فريد لكل قطعة
-    ids = [str(uuid.uuid4()) for _ in chunks]
-    
-    # نحسب المتجهات دفعة واحدة (أسرع)
-    embeddings = await asyncio.to_thread(
-        lambda: [get_embedding(chunk) for chunk in chunks]
-    )
-    
-    # 4. إضافة (أو تحديث) القطع في ChromaDB
-    # Upsert: إذا كان المعرف موجوداً، يُحدّث، وإلا يُضاف.
-    # للحفاظ على النظافة، سنحذف المجموعة القديمة إذا أردنا رفع ملف جديد بالكامل.
-    # لكن في هذا التطبيق، سنضيف الملفات الجديدة إلى نفس المجموعة (تراكمي).
+
+    # 3. حذف البيانات القديمة (استبدال كامل) - ننظف الجدول
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM documents")
+    conn.commit()
+
+    # 4. توليد التضمينات لكل قطعة (في خيط منفصل لتجنب حظر الخادم)
+    def process_chunks():
+        embeddings = []
+        for chunk in chunks:
+            emb = get_embedding(chunk)
+            embeddings.append(emb)
+        return embeddings
+
+    all_embeddings = await asyncio.to_thread(process_chunks)
+
+    # 5. تخزين البيانات في SQLite
     for i, chunk in enumerate(chunks):
-        collection.upsert(
-            documents=[chunk],
-            embeddings=[embeddings[i]],
-            ids=[ids[i]]
+        chunk_id = str(uuid.uuid4())
+        embedding_blob = np.array(all_embeddings[i], dtype=np.float32).tobytes()
+        cursor.execute(
+            "INSERT INTO documents (id, chunk, embedding, metadata) VALUES (?, ?, ?, ?)",
+            (chunk_id, chunk, embedding_blob, json.dumps({"source": file_path}))
         )
+    
+    conn.commit()
+    conn.close()
     
     return len(chunks)
 
 async def retrieve_context(query: str, top_k: int = 3) -> str:
     """
-    تستقبل سؤال المستخدم، وتبحث في ChromaDB عن القطع الأكثر تشابهاً.
-    تعيد النصوص المتشابهة كسلسلة نصية واحدة.
+    بحث عن القطع الأكثر تشابهاً مع سؤال المستخدم.
     """
-    # 1. تحويل سؤال المستخدم إلى متجه
+    # 1. توليد تضمين السؤال
     query_embedding = await asyncio.to_thread(get_embedding, query)
+    query_np = np.array(query_embedding, dtype=np.float32)
+
+    # 2. جلب جميع البيانات من قاعدة البيانات
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, chunk, embedding FROM documents")
+    rows = cursor.fetchall()
+    conn.close()
+
+    if not rows:
+        return ""
+
+    # 3. حساب التشابه (جيب التمام) لكل قطعة
+    similarities = []
+    for row in rows:
+        # تحويل BLOB إلى numpy array
+        stored_emb = np.frombuffer(row[2], dtype=np.float32)
+        # حساب التشابه (cosine similarity)
+        norm_a = np.linalg.norm(query_np)
+        norm_b = np.linalg.norm(stored_emb)
+        if norm_a == 0 or norm_b == 0:
+            sim = 0.0
+        else:
+            sim = np.dot(query_np, stored_emb) / (norm_a * norm_b)
+        similarities.append((sim, row[1]))
+
+    # 4. ترتيب النتائج تنازلياً (الأعلى تشابهاً أولاً)
+    similarities.sort(key=lambda x: x[0], reverse=True)
+
+    # 5. استخراج النصوص الأكثر تشابهاً
+    top_chunks = [text for _, text in similarities[:top_k]]
     
-    # 2. البحث في قاعدة البيانات
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k
-    )
-    
-    # 3. استخراج النصوص الناتجة
-    if results and results['documents'] and len(results['documents']) > 0:
-        # results['documents'] هي قائمة من القوائم، نأخذ أول قائمة
-        documents = results['documents'][0]
-        return "\n---\n".join(documents)
-    
-    return ""  # إذا لم يجد شيئاً، نعيد نصاً فارغاً
+    return "\n---\n".join(top_chunks)
 
 async def clear_collection():
-    """
-    (اختياري) لحذف جميع المستندات من قاعدة البيانات،
-    مفيد إذا أردت رفع ملف جديد واستبدال القديم.
-    """
-    # في ChromaDB، الحذف يتم على مستوى القطع، أو يمكن حذف المجموعة كاملة.
-    # الأسهل: حذف المجموعة وإنشاؤها من جديد.
-    global collection
-    chroma_client.delete_collection(COLLECTION_NAME)
-    collection = chroma_client.get_or_create_collection(name=COLLECTION_NAME)
+    """حذف جميع المستندات من قاعدة البيانات"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM documents")
+    conn.commit()
+    conn.close()
+    return {"status": "cleared"}
