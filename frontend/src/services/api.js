@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // الرابط الأساسي للخادم الخلفي (Backend)
 // لاحظ أن الخادم الخلفي يعمل على المنفذ 8000
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // إنشاء كائن Axios مع إعدادات أساسية
 const apiClient = axios.create({
