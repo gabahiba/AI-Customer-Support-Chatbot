@@ -36,7 +36,6 @@ def init_db():
             metadata TEXT
         )
     """)
-    # إضافة فهرس لتسريع البحث (اختياري)
     conn.commit()
     conn.close()
 
@@ -46,19 +45,21 @@ init_db()
 # ================================================
 # 2. تهيئة نموذج التضمين (يعمل بـ ONNX، خفيف جداً)
 # ================================================
-# هذا النموذج يستهلك حوالي 80 ميجابايت فقط، ولا يحتاج إلى PyTorch.
 embedding_model = TextEmbedding(model_name="all-MiniLM-L6-v2")
 
 def get_embedding(text: str) -> List[float]:
     """
-    توليد تضمين (متجه) للنص باستخدام fastembed
+    توليد تضمين (متجه) للنص باستخدام fastembed 0.5.0
     """
-    # fastembed يولد مصفوفة numpy
-    embeddings = list(embedding_model.embed([text]))
-    return embeddings[0].tolist()
+    # embed() تعيد مكرراً (iterator) من numpy arrays
+    embeddings_generator = embedding_model.embed([text])
+    # نأخذ أول عنصر (لأننا أرسلنا نصاً واحداً)
+    embedding_array = next(embeddings_generator)
+    # نحوله إلى قائمة من الأرقام العشرية
+    return embedding_array.tolist()
 
 # ================================================
-# 3. دوال استخراج النص وتقطيعه (نفسها كما كانت)
+# 3. دوال استخراج النص وتقطيعه
 # ================================================
 
 def extract_text_from_pdf(file_path: str) -> str:
@@ -91,23 +92,22 @@ async def index_pdf(file_path: str) -> int:
     """
     فهرسة ملف PDF: استخراج النص، تقطيعه، توليد التضمينات، وتخزينها في SQLite.
     """
-    # 1. استخراج النص (في خيط منفصل لأنها عملية ثقيلة)
+    # 1. استخراج النص (في خيط منفصل)
     text = await asyncio.to_thread(extract_text_from_pdf, file_path)
     if not text.strip():
         raise ValueError("الملف فارغ أو لا يحتوي على نص.")
 
-    # 2. تقطيع النص
     chunks = split_text_into_chunks(text)
     if not chunks:
         raise ValueError("لم يتم استخراج أي نص من الملف.")
 
-    # 3. حذف البيانات القديمة (استبدال كامل) - ننظف الجدول
+    # 2. حذف البيانات القديمة (استبدال كامل)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM documents")
     conn.commit()
 
-    # 4. توليد التضمينات لكل قطعة (في خيط منفصل لتجنب حظر الخادم)
+    # 3. توليد التضمينات لكل قطعة (في خيط منفصل)
     def process_chunks():
         embeddings = []
         for chunk in chunks:
@@ -117,7 +117,7 @@ async def index_pdf(file_path: str) -> int:
 
     all_embeddings = await asyncio.to_thread(process_chunks)
 
-    # 5. تخزين البيانات في SQLite
+    # 4. تخزين البيانات في SQLite
     for i, chunk in enumerate(chunks):
         chunk_id = str(uuid.uuid4())
         embedding_blob = np.array(all_embeddings[i], dtype=np.float32).tobytes()
@@ -152,9 +152,7 @@ async def retrieve_context(query: str, top_k: int = 3) -> str:
     # 3. حساب التشابه (جيب التمام) لكل قطعة
     similarities = []
     for row in rows:
-        # تحويل BLOB إلى numpy array
         stored_emb = np.frombuffer(row[2], dtype=np.float32)
-        # حساب التشابه (cosine similarity)
         norm_a = np.linalg.norm(query_np)
         norm_b = np.linalg.norm(stored_emb)
         if norm_a == 0 or norm_b == 0:
@@ -163,7 +161,7 @@ async def retrieve_context(query: str, top_k: int = 3) -> str:
             sim = np.dot(query_np, stored_emb) / (norm_a * norm_b)
         similarities.append((sim, row[1]))
 
-    # 4. ترتيب النتائج تنازلياً (الأعلى تشابهاً أولاً)
+    # 4. ترتيب النتائج تنازلياً
     similarities.sort(key=lambda x: x[0], reverse=True)
 
     # 5. استخراج النصوص الأكثر تشابهاً
