@@ -45,7 +45,7 @@ init_db()
 # ================================================
 # 2. تهيئة نموذج التضمين (يعمل بـ ONNX، خفيف جداً)
 # ================================================
-embedding_model = TextEmbedding(model_name="all-MiniLM-L6-v2")
+embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
 def get_embedding(text: str) -> List[float]:
     """
