@@ -84,7 +84,7 @@ function App() {
       setSessions((prev) => [newSession, ...prev]);
       setActiveSessionId(newSessionId);
       setMessages([]);
-      setIsSidebarOpen(false); // غلق القائمة بعد الإنشاء
+      setIsSidebarOpen(false);
     } catch (error) {
       console.error('فشل في إنشاء محادثة جديدة:', error);
     }
@@ -93,7 +93,7 @@ function App() {
   const handleSelectSession = async (sessionId) => {
     if (sessionId === activeSessionId) return;
     setActiveSessionId(sessionId);
-    setIsSidebarOpen(false); // غلق القائمة بعد الاختيار
+    setIsSidebarOpen(false);
   };
 
   const handleRenameSession = async (sessionId, newTitle) => {
@@ -225,7 +225,8 @@ function App() {
       {/* منطقة الدردشة الرئيسية */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        <header className={`${headerBg} border-b backdrop-blur-xl py-3 px-4 sm:px-6 flex items-center justify-between shadow-sm`}>
+        {/* ===== شريط العنوان العلوي (ثابت) ===== */}
+        <header className={`sticky top-0 z-10 ${headerBg} border-b backdrop-blur-xl py-3 px-4 sm:px-6 flex items-center justify-between shadow-sm`}>
           <div className="flex items-center gap-2 sm:gap-3">
             {/* زر فتح القائمة (يظهر فقط في الهواتف) */}
             <button
@@ -252,6 +253,7 @@ function App() {
           </div>
         </header>
 
+        {/* منطقة الرسائل (قابلة للتمرير) */}
         <div className={`flex-1 overflow-y-auto p-3 sm:p-6 ${shellBg}`}>
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 sm:gap-4">
             {messages.length === 0 ? (
@@ -304,6 +306,7 @@ function App() {
           </div>
         </div>
 
+        {/* شريط الإدخال (ثابت في الأسفل) */}
         <div className={`${headerBg} border-t p-3 sm:p-4 backdrop-blur-xl`}>
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <label className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full transition ${isDarkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'} cursor-pointer`}>
