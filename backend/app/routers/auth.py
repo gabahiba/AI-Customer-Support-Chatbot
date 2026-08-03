@@ -23,31 +23,19 @@ class TokenResponse(BaseModel):
 
 @router.post("/register")
 async def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    # التحقق من عدم وجود اسم مستخدم أو بريد مكرر
     if get_user_by_username(db, request.username):
         raise HTTPException(status_code=400, detail="Username already exists")
     if get_user_by_email(db, request.email):
         raise HTTPException(status_code=400, detail="Email already exists")
     
-    # إنشاء المستخدم
     hashed_password = get_password_hash(request.password)
-    new_user = User(
-        username=request.username,
-        email=request.email,
-        password_hash=hashed_password
-    )
+    new_user = User(username=request.username, email=request.email, password_hash=hashed_password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    # إنشاء Token
     access_token = create_access_token(data={"sub": str(new_user.id)})
-    return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        user_id=new_user.id,
-        username=new_user.username
-    )
+    return TokenResponse(access_token=access_token, token_type="bearer", user_id=new_user.id, username=new_user.username)
 
 @router.post("/login")
 async def login(request: LoginRequest, db: Session = Depends(get_db)):
@@ -55,12 +43,7 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token(data={"sub": str(user.id)})
-    return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        user_id=user.id,
-        username=user.username
-    )
+    return TokenResponse(access_token=access_token, token_type="bearer", user_id=user.id, username=user.username)
 
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):

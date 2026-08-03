@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import User
 
-# ===== إعدادات JWT =====
-SECRET_KEY = "your-secret-key-change-in-production"  # ⚠️ غيّرها في الإنتاج
+SECRET_KEY = "your-super-secret-key-change-in-production"  # ⚠️ غيّره في الإنتاج
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 أيام
 
