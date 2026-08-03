@@ -54,18 +54,23 @@ export const uploadPdf = async (file) => {
   }
 };
 /**
- * جلب قائمة جميع الجلسات (المحادثات)
+ * جلب قائمة جميع الجلسات (المحادثات) الخاصة بمتصفح معين
+ * @param {string} browserId - معرف المتصفح (لتصفية الجلسات)
  * @returns {Promise} - قائمة الجلسات
  */
-export const getSessions = async () => {
+export const getSessions = async (browserId) => {
   try {
-    const response = await apiClient.get('/sessions/');
+    // نضيف browser_id كمعامل استعلام (Query Parameter)
+    const url = browserId ? `/sessions/?browser_id=${browserId}` : '/sessions/';
+    const response = await apiClient.get(url);
     return response.data;
   } catch (error) {
     console.error('خطأ في جلب الجلسات:', error);
     throw new Error('فشل في تحميل قائمة المحادثات.');
   }
 };
+
+// باقي الدوال (createSession, updateSessionTitle, deleteSession, getSessionMessages) تبقى كما هي
 
 /**
  * إنشاء جلسة جديدة
