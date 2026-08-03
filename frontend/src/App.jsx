@@ -14,18 +14,6 @@ import {
   getSessionMessages,
 } from './services/api';
 
-// ========== معرف المتصفح (يُخزن في localStorage) ==========
-const [browserId, setBrowserId] = useState(() => {
-  // نحاول استرجاع معرف المتصفح من localStorage
-  let storedId = localStorage.getItem('chat-browser-id');
-  if (!storedId) {
-    // إذا لم يكن موجوداً، ننشئ معرفاً جديداً ونخزنه
-    storedId = crypto.randomUUID();
-    localStorage.setItem('chat-browser-id', storedId);
-  }
-  return storedId;
-});
-
 function App() {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -64,21 +52,20 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-const loadSessions = async () => {
-  setIsLoadingSessions(true);
-  try {
-    // نمرر browserId إلى getSessions
-    const data = await getSessions(browserId);
-    setSessions(data);
-    if (data.length > 0 && !activeSessionId) {
-      setActiveSessionId(data[0].session_id);
+  const loadSessions = async () => {
+    setIsLoadingSessions(true);
+    try {
+      const data = await getSessions();
+      setSessions(data);
+      if (data.length > 0 && !activeSessionId) {
+        setActiveSessionId(data[0].session_id);
+      }
+    } catch (error) {
+      console.error('فشل في تحميل الجلسات:', error);
+    } finally {
+      setIsLoadingSessions(false);
     }
-  } catch (error) {
-    console.error('فشل في تحميل الجلسات:', error);
-  } finally {
-    setIsLoadingSessions(false);
-  }
-};
+  };
 
   const loadSessionMessages = async (sessionId) => {
     try {
@@ -90,18 +77,18 @@ const loadSessions = async () => {
     }
   };
 
- const handleNewChat = async () => {
-  try {
-    // نستخدم browserId نفسه كمعرف للجلسة (ليكون مرتبطاً بهذا المتصفح)
-    const newSession = await createSession(browserId, 'محادثة جديدة');
-    setSessions((prev) => [newSession, ...prev]);
-    setActiveSessionId(browserId);
-    setMessages([]);
-    setIsSidebarOpen(false);
-  } catch (error) {
-    console.error('فشل في إنشاء محادثة جديدة:', error);
-  }
-};
+  const handleNewChat = async () => {
+    try {
+      const newSessionId = crypto.randomUUID();
+      const newSession = await createSession(newSessionId, 'محادثة جديدة');
+      setSessions((prev) => [newSession, ...prev]);
+      setActiveSessionId(newSessionId);
+      setMessages([]);
+      setIsSidebarOpen(false);
+    } catch (error) {
+      console.error('فشل في إنشاء محادثة جديدة:', error);
+    }
+  };
 
   const handleSelectSession = async (sessionId) => {
     if (sessionId === activeSessionId) return;
