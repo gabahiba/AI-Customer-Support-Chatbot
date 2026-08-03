@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud } from 'react-icons/fi';
+import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud, FiMenu } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -27,6 +27,8 @@ function App() {
     if (stored !== null) return stored === 'true';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+  // ========== حالة الشريط الجانبي للهاتف ==========
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -82,6 +84,7 @@ function App() {
       setSessions((prev) => [newSession, ...prev]);
       setActiveSessionId(newSessionId);
       setMessages([]);
+      setIsSidebarOpen(false); // غلق القائمة بعد الإنشاء
     } catch (error) {
       console.error('فشل في إنشاء محادثة جديدة:', error);
     }
@@ -90,6 +93,7 @@ function App() {
   const handleSelectSession = async (sessionId) => {
     if (sessionId === activeSessionId) return;
     setActiveSessionId(sessionId);
+    setIsSidebarOpen(false); // غلق القائمة بعد الاختيار
   };
 
   const handleRenameSession = async (sessionId, newTitle) => {
@@ -171,6 +175,7 @@ function App() {
     setIsDarkMode((prev) => !prev);
   };
 
+  // ========== الثيمات ==========
   const shellBg = isDarkMode
     ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.14),_transparent_30%),#060816] text-slate-100'
     : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_30%),linear-gradient(135deg,_#f8fbff_0%,_#f5f7fb_60%,_#eef2ff_100%)] text-slate-900';
@@ -190,58 +195,87 @@ function App() {
   });
 
   return (
-    <div className={`flex h-screen ${shellBg} font-cairo transition-colors duration-300`}>
-      <Sidebar
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onNewChat={handleNewChat}
-        onSelectSession={handleSelectSession}
-        onRenameSession={handleRenameSession}
-        onDeleteSession={handleDeleteSession}
-        isLoading={isLoadingSessions}
-        isDarkMode={isDarkMode}
-      />
+    <div className={`flex h-screen ${shellBg} font-cairo transition-colors duration-300 relative`}>
+      
+      {/* خلفية مظلمة (Overlay) عند فتح القائمة في الهاتف */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
 
+      {/* الشريط الجانبي (منزلق في الهاتف، ثابت في الشاشات الكبيرة) */}
+      <div className={`
+        fixed lg:relative z-50 h-full transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <Sidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onNewChat={handleNewChat}
+          onSelectSession={handleSelectSession}
+          onRenameSession={handleRenameSession}
+          onDeleteSession={handleDeleteSession}
+          isLoading={isLoadingSessions}
+          isDarkMode={isDarkMode}
+        />
+      </div>
+
+      {/* منطقة الدردشة الرئيسية */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className={`${headerBg} border-b backdrop-blur-xl py-3 px-6 flex items-center justify-between shadow-sm`}>
-          <button
-            onClick={toggleDarkMode}
-            className={`p-2.5 rounded-full transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'}`}
-            aria-label="Toggle Dark Mode"
-          >
-            {isDarkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-slate-600 text-xl" />}
-          </button>
+        
+        <header className={`${headerBg} border-b backdrop-blur-xl py-3 px-4 sm:px-6 flex items-center justify-between shadow-sm`}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* زر فتح القائمة (يظهر فقط في الهواتف) */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
+              aria-label="Open sidebar"
+            >
+              <FiMenu className="text-xl" />
+            </button>
+            
+            {/* زر الوضع الليلي */}
+            <button
+              onClick={toggleDarkMode}
+              className={`p-2.5 rounded-full transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'}`}
+              aria-label="Toggle Dark Mode"
+            >
+              {isDarkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-slate-600 text-xl" />}
+            </button>
+          </div>
 
           <div className="text-right">
-            <div className="text-lg font-semibold">مرحباً بك</div>
-            <div className={`text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
+            <div className="text-base sm:text-lg font-semibold">مرحباً بك</div>
+            <div className={`text-xs sm:text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
           </div>
         </header>
 
-        <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${shellBg}`}>
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+        <div className={`flex-1 overflow-y-auto p-3 sm:p-6 ${shellBg}`}>
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 sm:gap-4">
             {messages.length === 0 ? (
-              <div className={`rounded-3xl border ${panelBg} p-8 text-center shadow-sm backdrop-blur-xl`}>
-                <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${isDarkMode ? 'bg-sky-500/10' : 'bg-sky-100'}`}>
-                  <FiZap className={`text-2xl ${accentText}`} />
+              <div className={`rounded-3xl border ${panelBg} p-5 sm:p-8 text-center shadow-sm backdrop-blur-xl`}>
+                <div className={`mx-auto mb-4 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl ${isDarkMode ? 'bg-sky-500/10' : 'bg-sky-100'}`}>
+                  <FiZap className={`text-xl sm:text-2xl ${accentText}`} />
                 </div>
-                <h2 className="text-lg font-semibold">أهلاً وسهلاً! كيف يمكنني مساعدتك اليوم؟</h2>
-                <p className={`mt-2 text-sm ${mutedText}`}>
+                <h2 className="text-base sm:text-lg font-semibold">أهلاً وسهلاً! كيف يمكنني مساعدتك اليوم؟</h2>
+                <p className={`mt-2 text-xs sm:text-sm ${mutedText}`}>
                   يمكنك سؤالي عن أي موضوع، أو رفع ملف PDF والبدء مباشرة.
                 </p>
               </div>
             ) : (
               <>
                 <div className="flex justify-center">
-                  <span className={`rounded-full border px-4 py-1 text-xs ${isDarkMode ? 'border-slate-700 bg-slate-800/80 text-slate-400' : 'border-slate-200 bg-white/80 text-slate-500'}`}>
+                  <span className={`rounded-full border px-3 sm:px-4 py-0.5 sm:py-1 text-[10px] sm:text-xs ${isDarkMode ? 'border-slate-700 bg-slate-800/80 text-slate-400' : 'border-slate-200 bg-white/80 text-slate-500'}`}>
                     {formattedDate}
                   </span>
                 </div>
 
                 {messages.map((msg, index) => (
                   <div key={`${msg.role}-${index}`} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-3xl border px-4 py-3 shadow-sm ${msg.role === 'user' ? `${userBubble} rounded-br-md` : `${botBubble} rounded-bl-md`}`}>
-                      <div className={`mb-1 text-xs font-semibold ${msg.role === 'assistant' ? accentText : 'opacity-80'}`}>
+                    <div className={`max-w-[85%] sm:max-w-[80%] rounded-3xl border px-3 sm:px-4 py-2 sm:py-3 shadow-sm ${msg.role === 'user' ? `${userBubble} rounded-br-md` : `${botBubble} rounded-bl-md`}`}>
+                      <div className={`mb-1 text-[10px] sm:text-xs font-semibold ${msg.role === 'assistant' ? accentText : 'opacity-80'}`}>
                         {msg.role === 'assistant' ? 'AI' : 'أنت'}
                       </div>
                       <div className="prose prose-sm max-w-none break-words dark:prose-invert">
@@ -270,32 +304,32 @@ function App() {
           </div>
         </div>
 
-        <div className={`${headerBg} border-t p-4 backdrop-blur-xl`}>
+        <div className={`${headerBg} border-t p-3 sm:p-4 backdrop-blur-xl`}>
           <div className="mx-auto flex max-w-3xl items-center gap-2">
-            <label className={`flex h-11 w-11 items-center justify-center rounded-full transition ${isDarkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'} cursor-pointer`}>
-              <FiPaperclip className="text-xl" />
+            <label className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full transition ${isDarkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'} cursor-pointer`}>
+              <FiPaperclip className="text-lg sm:text-xl" />
               <input type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
             </label>
 
-            <div className={`flex flex-1 items-center gap-2 rounded-full border px-3 py-2 shadow-sm ${inputBg}`}>
+            <div className={`flex flex-1 items-center gap-2 rounded-full border px-3 py-1.5 sm:py-2 shadow-sm ${inputBg}`}>
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="اكتب رسالتك هنا..."
-                className={`flex-1 bg-transparent text-sm outline-none placeholder:font-light ${isDarkMode ? 'placeholder-slate-500' : 'placeholder-slate-400'}`}
+                className={`flex-1 bg-transparent text-xs sm:text-sm outline-none placeholder:font-light ${isDarkMode ? 'placeholder-slate-500' : 'placeholder-slate-400'}`}
                 disabled={!activeSessionId}
               />
-              <FiUploadCloud className={`text-lg ${mutedText}`} />
+              <FiUploadCloud className={`text-base sm:text-lg ${mutedText}`} />
             </div>
 
             <button
               onClick={handleSend}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 transition disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!input.trim() || isLoading || !activeSessionId}
             >
-              <FiSend className="text-lg" />
+              <FiSend className="text-base sm:text-lg" />
             </button>
           </div>
         </div>
