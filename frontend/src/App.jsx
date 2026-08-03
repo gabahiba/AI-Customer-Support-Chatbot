@@ -181,8 +181,11 @@ function App() {
     setIsDarkMode((prev) => !prev);
   };
 
+  // ============================================================
+  // 🎨 الثيمات (تم تعديل shellBg في الوضع الليلي)
+  // ============================================================
   const shellBg = isDarkMode
-    ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.14),_transparent_30%),#060816] text-slate-100'
+    ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.08),_transparent_60%),#000000] text-slate-100'
     : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_30%),linear-gradient(135deg,_#f8fbff_0%,_#f5f7fb_60%,_#eef2ff_100%)] text-slate-900';
   const headerBg = isDarkMode ? 'bg-slate-900/90 border-slate-800/80' : 'bg-white/75 border-slate-200/80';
   const panelBg = isDarkMode ? 'bg-slate-900/70 border-slate-800/80' : 'bg-white/70 border-slate-200/80';
