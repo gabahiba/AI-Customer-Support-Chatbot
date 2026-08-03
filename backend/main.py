@@ -4,6 +4,12 @@ from app.database import database, engine, Base
 from app import models
 from app.routers import chat, upload, sessions
 
+from app.routers import chat, upload, sessions, auth  # أضف ", auth"
+
+app.include_router(chat.router)
+app.include_router(upload.router)
+app.include_router(sessions.router)
+app.include_router(auth.router)  # أضف هذا السطر
 # ============================================
 # 1. تعريف تطبيق FastAPI (يجب أن يكون أولاً)
 # ============================================
