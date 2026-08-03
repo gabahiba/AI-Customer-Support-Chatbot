@@ -17,10 +17,11 @@ const SessionItem = ({ session, isActive, onSelect, onRename, onDelete, isDarkMo
     setIsEditing(false);
   };
 
-  const activeBg = isDarkMode ? 'bg-slate-800/90 text-white border-sky-500/40' : 'bg-sky-50 text-slate-900 border-sky-300';
-  const hoverBg = isDarkMode ? 'hover:bg-slate-800/70' : 'hover:bg-slate-100';
-  const textColor = isDarkMode ? 'text-slate-300' : 'text-slate-700';
-  const inputBg = isDarkMode ? 'bg-slate-900 border-sky-500 text-white' : 'bg-white border-sky-500 text-slate-900';
+  // ========== الثيمات ==========
+  const activeBg = isDarkMode ? 'bg-gray-800 text-white' : 'bg-[#E5E5EA] text-gray-900';
+  const hoverBg = isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-[#E5E5EA]';
+  const textColor = isDarkMode ? 'text-gray-300' : 'text-gray-700';
+  const inputBg = isDarkMode ? 'bg-gray-900 border-blue-500 text-white' : 'bg-white border-[#0084FF] text-gray-900';
 
   return (
     <div className={`group flex items-center gap-2 rounded-2xl border p-2.5 transition-all ${isActive ? `${activeBg} border` : `${hoverBg} ${textColor} border-transparent`}`}>

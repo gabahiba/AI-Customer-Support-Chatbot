@@ -184,16 +184,18 @@ function App() {
   // ============================================================
   // 🎨 الثيمات (تم تعديل shellBg في الوضع الليلي)
   // ============================================================
+  // ========== الثيمات ==========
   const shellBg = isDarkMode
-    ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.08),_transparent_60%),#000000] text-slate-100'
+    ? 'bg-black text-white'  // ⬅️ خلفية سوداء صافية
     : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_30%),linear-gradient(135deg,_#f8fbff_0%,_#f5f7fb_60%,_#eef2ff_100%)] text-slate-900';
-  const headerBg = isDarkMode ? 'bg-slate-900/90 border-slate-800/80' : 'bg-white/75 border-slate-200/80';
-  const panelBg = isDarkMode ? 'bg-slate-900/70 border-slate-800/80' : 'bg-white/70 border-slate-200/80';
-  const inputBg = isDarkMode ? 'bg-slate-800/90 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
+
+  const headerBg = isDarkMode ? 'bg-black border-gray-800' : 'bg-white/75 border-slate-200/80';
+  const panelBg = isDarkMode ? 'bg-gray-900/95 border-gray-800' : 'bg-white/70 border-slate-200/80';
+  const inputBg = isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-slate-300 text-slate-900';
   const userBubble = 'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20';
-  const botBubble = isDarkMode ? 'bg-slate-800/90 text-slate-100 border-slate-700' : 'bg-white text-slate-700 border-slate-200';
-  const mutedText = isDarkMode ? 'text-slate-400' : 'text-slate-500';
-  const accentText = isDarkMode ? 'text-sky-300' : 'text-sky-600';
+  const botBubble = isDarkMode ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-slate-700 border-slate-200';
+  const mutedText = isDarkMode ? 'text-gray-400' : 'text-slate-500';
+  const accentText = isDarkMode ? 'text-blue-400' : 'text-sky-600';
 
   const today = new Date();
   const formattedDate = today.toLocaleDateString('ar-EG', {

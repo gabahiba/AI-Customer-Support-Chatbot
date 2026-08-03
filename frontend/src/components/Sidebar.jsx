@@ -32,11 +32,12 @@ const Sidebar = ({
   const groupKeys = Object.keys(groupedSessions);
 
   // ========== الثيمات ==========
-  const bgColor = isDarkMode ? 'bg-sidebar-dark' : 'bg-sidebar-light';
-  const textColor = isDarkMode ? 'text-text-dark' : 'text-text-light';
-  const subTextColor = isDarkMode ? 'text-subtext-dark' : 'text-subtext-light';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-200';
-  const inputBg = isDarkMode ? 'bg-[#1C1C1E] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800';
+  // ========== الثيمات ==========
+  const bgColor = isDarkMode ? 'bg-black' : 'bg-sidebar-light';
+  const textColor = isDarkMode ? 'text-white' : 'text-text-light';
+  const subTextColor = isDarkMode ? 'text-gray-400' : 'text-subtext-light';
+  const borderColor = isDarkMode ? 'border-gray-800' : 'border-border-light';
+  const inputBg = isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-input-light border-gray-200 text-gray-800';
   const inputPlaceholder = isDarkMode ? 'placeholder-gray-500' : 'placeholder-gray-400';
 
   return (
