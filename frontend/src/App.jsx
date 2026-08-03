@@ -27,8 +27,15 @@ function App() {
     if (stored !== null) return stored === 'true';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-  // ========== حالة الشريط الجانبي للهاتف ==========
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [browserId, setBrowserId] = useState(() => {
+    let storedId = localStorage.getItem('chat-browser-id');
+    if (!storedId) {
+      storedId = crypto.randomUUID();
+      localStorage.setItem('chat-browser-id', storedId);
+    }
+    return storedId;
+  });
 
   const messagesEndRef = useRef(null);
 
@@ -38,7 +45,7 @@ function App() {
 
   useEffect(() => {
     loadSessions();
-  }, []);
+  }, [browserId]);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -55,7 +62,7 @@ function App() {
   const loadSessions = async () => {
     setIsLoadingSessions(true);
     try {
-      const data = await getSessions();
+      const data = await getSessions(browserId);
       setSessions(data);
       if (data.length > 0 && !activeSessionId) {
         setActiveSessionId(data[0].session_id);
@@ -79,10 +86,9 @@ function App() {
 
   const handleNewChat = async () => {
     try {
-      const newSessionId = crypto.randomUUID();
-      const newSession = await createSession(newSessionId, 'محادثة جديدة');
+      const newSession = await createSession(browserId, 'محادثة جديدة');
       setSessions((prev) => [newSession, ...prev]);
-      setActiveSessionId(newSessionId);
+      setActiveSessionId(browserId);
       setMessages([]);
       setIsSidebarOpen(false);
     } catch (error) {
@@ -90,7 +96,7 @@ function App() {
     }
   };
 
-  const handleSelectSession = async (sessionId) => {
+  const handleSelectSession = (sessionId) => {
     if (sessionId === activeSessionId) return;
     setActiveSessionId(sessionId);
     setIsSidebarOpen(false);
@@ -175,7 +181,6 @@ function App() {
     setIsDarkMode((prev) => !prev);
   };
 
-  // ========== الثيمات ==========
   const shellBg = isDarkMode
     ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.14),_transparent_30%),#060816] text-slate-100'
     : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_30%),linear-gradient(135deg,_#f8fbff_0%,_#f5f7fb_60%,_#eef2ff_100%)] text-slate-900';
@@ -196,8 +201,6 @@ function App() {
 
   return (
     <div className={`flex h-screen ${shellBg} font-cairo transition-colors duration-300 relative`}>
-      
-      {/* خلفية مظلمة (Overlay) عند فتح القائمة في الهاتف */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -205,7 +208,6 @@ function App() {
         />
       )}
 
-      {/* الشريط الجانبي (منزلق في الهاتف، ثابت في الشاشات الكبيرة) */}
       <div className={`
         fixed lg:relative z-50 h-full transition-transform duration-300 ease-in-out
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -222,13 +224,9 @@ function App() {
         />
       </div>
 
-      {/* منطقة الدردشة الرئيسية */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* ===== شريط العنوان العلوي (ثابت) ===== */}
         <header className={`sticky top-0 z-10 ${headerBg} border-b backdrop-blur-xl py-3 px-4 sm:px-6 flex items-center justify-between shadow-sm`}>
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* زر فتح القائمة (يظهر فقط في الهواتف) */}
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
@@ -237,7 +235,6 @@ function App() {
               <FiMenu className="text-xl" />
             </button>
             
-            {/* زر الوضع الليلي */}
             <button
               onClick={toggleDarkMode}
               className={`p-2.5 rounded-full transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'}`}
@@ -253,7 +250,6 @@ function App() {
           </div>
         </header>
 
-        {/* منطقة الرسائل (قابلة للتمرير) */}
         <div className={`flex-1 overflow-y-auto p-3 sm:p-6 ${shellBg}`}>
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 sm:gap-4">
             {messages.length === 0 ? (
@@ -276,7 +272,7 @@ function App() {
 
                 {messages.map((msg, index) => (
                   <div key={`${msg.role}-${index}`} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] sm:max-w-[80%] rounded-3xl border px-3 sm:px-4 py-2 sm:py-3 shadow-sm ${msg.role === 'user' ? `${userBubble} rounded-br-md` : `${botBubble} rounded-bl-md`}`}>
+                    <div className={`max-w-[85%] sm:max-w-[80%] rounded-3xl border px-3 sm:px-4 py-2 sm:py-3 shadow-sm ${msg.role === 'user' ? `${userBubble} rounded-br-md` : `${botBubble} rounded-bl-md}`}`}>
                       <div className={`mb-1 text-[10px] sm:text-xs font-semibold ${msg.role === 'assistant' ? accentText : 'opacity-80'}`}>
                         {msg.role === 'assistant' ? 'AI' : 'أنت'}
                       </div>
@@ -306,7 +302,6 @@ function App() {
           </div>
         </div>
 
-        {/* شريط الإدخال (ثابت في الأسفل) */}
         <div className={`${headerBg} border-t p-3 sm:p-4 backdrop-blur-xl`}>
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <label className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full transition ${isDarkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'} cursor-pointer`}>
