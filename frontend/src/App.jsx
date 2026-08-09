@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud, FiMenu, FiLogOut } from 'react-icons/fi';
+import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud, FiMenu } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import Sidebar from './components/Sidebar';
-import { useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import Register from './pages/Register';
 import {
   sendMessage,
   uploadPdf,
@@ -17,12 +14,7 @@ import {
   getSessionMessages,
 } from './services/api';
 
-// ============================================================
-// مكون الدردشة الرئيسي (يظهر فقط عند تسجيل الدخول)
-// ============================================================
-function ChatApp() {
-  const { user, logout } = useAuth();
-  
+function App() {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -53,7 +45,7 @@ function ChatApp() {
 
   useEffect(() => {
     loadSessions();
-  }, []);
+  }, [browserId]);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -70,7 +62,7 @@ function ChatApp() {
   const loadSessions = async () => {
     setIsLoadingSessions(true);
     try {
-      const data = await getSessions();
+      const data = await getSessions(browserId);
       setSessions(data);
       if (data.length > 0 && !activeSessionId) {
         setActiveSessionId(data[0].session_id);
@@ -190,7 +182,6 @@ function ChatApp() {
     setIsDarkMode((prev) => !prev);
   };
 
-  // ========== الثيمات ==========
   const shellBg = isDarkMode
     ? 'bg-black text-white'
     : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_30%),linear-gradient(135deg,_#f8fbff_0%,_#f5f7fb_60%,_#eef2ff_100%)] text-slate-900';
@@ -252,24 +243,11 @@ function ChatApp() {
             >
               {isDarkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-slate-600 text-xl" />}
             </button>
-
-            <span className="text-sm font-medium hidden sm:block">
-              {user?.username}
-            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <div className="text-base sm:text-lg font-semibold">مرحباً بك</div>
-              <div className={`text-xs sm:text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
-            </div>
-            <button
-              onClick={logout}
-              className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
-              title="تسجيل الخروج"
-            >
-              <FiLogOut className="text-xl" />
-            </button>
+          <div className="text-right">
+            <div className="text-base sm:text-lg font-semibold">مرحباً بك</div>
+            <div className={`text-xs sm:text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
           </div>
         </header>
 
@@ -357,35 +335,6 @@ function ChatApp() {
       </div>
     </div>
   );
-}
-
-// ============================================================
-// المكون الرئيسي (يختار بين صفحة المصادقة والدردشة)
-// ============================================================
-function App() {
-  const { user, loading } = useAuth();
-  const [authView, setAuthView] = useState('login'); // 'login' أو 'register'
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-black">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-sky-500 mx-auto"></div>
-          <p className="mt-4 text-slate-500 dark:text-slate-400">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    if (authView === 'login') {
-      return <Login onSwitchToRegister={() => setAuthView('register')} />;
-    } else {
-      return <Register onSwitchToLogin={() => setAuthView('login')} />;
-    }
-  }
-
-  return <ChatApp />;
 }
 
 export default App;
