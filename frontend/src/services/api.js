@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 // الرابط الأساسي للخادم الخلفي (Backend)
-// لاحظ أن الخادم الخلفي يعمل على المنفذ 8000
+// إذا كنت في التطوير المحلي، استخدم localhost، وإلا استخدم رابط Render
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// إنشاء كائن Axios مع إعدادات أساسية
+// إنشاء كائن Axios
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -12,31 +12,59 @@ const apiClient = axios.create({
   },
 });
 
-/**
- * إرسال رسالة إلى البوت
- * @param {string} sessionId - معرف الجلسة (لتذكر المحادثة)
- * @param {string} message - نص الرسالة
- * @returns {Promise} - رد البوت
- */
+// ================================================
+// إضافة Interceptor لإرسال Token مع كل طلب
+// ================================================
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('chat-token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ================================================
+// دوال المصادقة (Authentication)
+// ================================================
+
+export const loginUser = async (username, password) => {
+  const response = await apiClient.post('/auth/login', { username, password });
+  return response.data;
+};
+
+export const registerUser = async (username, email, password) => {
+  const response = await apiClient.post('/auth/register', { username, email, password });
+  return response.data;
+};
+
+export const getCurrentUser = async (token) => {
+  // نمرر token مباشرة لأن الـ Interceptor قد لا يعمل إذا لم يكن مخزناً
+  const response = await axios.get(`${API_BASE_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+// ================================================
+// دوال المحادثات (Chat) - تُستخدم في App.jsx
+// ================================================
+
 export const sendMessage = async (sessionId, message) => {
   try {
     const response = await apiClient.post('/chat/', {
       session_id: sessionId,
       message: message,
     });
-    return response.data; // يعيد { session_id, response }
+    return response.data;
   } catch (error) {
     console.error('خطأ في الاتصال بالخادم:', error);
-    // نعيد رسالة خطأ مفهومة للمستخدم
-    throw new Error('عذراً، حدث خلل في الاتصال بالخادم. تأكد من أن الخادم الخلفي يعمل.');
+    throw new Error('عذراً، حدث خلل في الاتصال بالخادم.');
   }
 };
 
-/**
- * (اختياري) رفع ملف PDF
- * @param {File} file - ملف PDF
- * @returns {Promise} - رسالة نجاح
- */
 export const uploadPdf = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
@@ -53,10 +81,7 @@ export const uploadPdf = async (file) => {
     throw new Error('فشل رفع الملف. تأكد من أنه بصيغة PDF.');
   }
 };
-/**
- * جلب قائمة جميع الجلسات (المحادثات)
- * @returns {Promise} - قائمة الجلسات
- */
+
 export const getSessions = async () => {
   try {
     const response = await apiClient.get('/sessions/');
@@ -67,12 +92,6 @@ export const getSessions = async () => {
   }
 };
 
-/**
- * إنشاء جلسة جديدة
- * @param {string} sessionId - معرف الجلسة
- * @param {string} title - عنوان الجلسة (اختياري)
- * @returns {Promise} - بيانات الجلسة المنشأة
- */
 export const createSession = async (sessionId, title = 'محادثة جديدة') => {
   try {
     const response = await apiClient.post('/sessions/', {
@@ -86,12 +105,6 @@ export const createSession = async (sessionId, title = 'محادثة جديدة'
   }
 };
 
-/**
- * تحديث عنوان جلسة (إعادة تسمية)
- * @param {string} sessionId - معرف الجلسة
- * @param {string} newTitle - العنوان الجديد
- * @returns {Promise} - بيانات الجلسة المحدثة
- */
 export const updateSessionTitle = async (sessionId, newTitle) => {
   try {
     const response = await apiClient.put(`/sessions/${sessionId}`, {
@@ -104,11 +117,6 @@ export const updateSessionTitle = async (sessionId, newTitle) => {
   }
 };
 
-/**
- * حذف جلسة (وجميع رسائلها)
- * @param {string} sessionId - معرف الجلسة
- * @returns {Promise} - رسالة نجاح
- */
 export const deleteSession = async (sessionId) => {
   try {
     const response = await apiClient.delete(`/sessions/${sessionId}`);
@@ -119,11 +127,6 @@ export const deleteSession = async (sessionId) => {
   }
 };
 
-/**
- * جلب رسائل جلسة معينة
- * @param {string} sessionId - معرف الجلسة
- * @returns {Promise} - قائمة الرسائل
- */
 export const getSessionMessages = async (sessionId) => {
   try {
     const response = await apiClient.get(`/sessions/${sessionId}/messages`);
