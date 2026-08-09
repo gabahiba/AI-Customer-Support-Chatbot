@@ -132,7 +132,7 @@ function App() {
   };
 
   const handleSend = async () => {
-    if (input.trim() === '' || isLoading || !activeSessionId) return;
+    if (input.trim() === '' || isLoading) return; // تم إزالة !activeSessionId
 
     const userMessage = { role: 'user', content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -140,7 +140,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await sendMessage(activeSessionId, input);
+      const response = await sendMessage(activeSessionId || browserId, input); // استخدام browserId كبديل
       const botMessage = { role: 'assistant', content: response.response };
       setMessages((prev) => [...prev, botMessage]);
       await loadSessions();
@@ -318,7 +318,8 @@ function App() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="اكتب رسالتك هنا..."
                 className={`flex-1 bg-transparent text-xs sm:text-sm outline-none placeholder:font-light ${isDarkMode ? 'placeholder-slate-500' : 'placeholder-slate-400'}`}
-                disabled={!activeSessionId}
+                // تم تعليق السطر التالي لإزالة التعطيل
+                // disabled={!activeSessionId}
               />
               <FiUploadCloud className={`text-base sm:text-lg ${mutedText}`} />
             </div>
@@ -326,7 +327,7 @@ function App() {
             <button
               onClick={handleSend}
               className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 transition disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!input.trim() || isLoading || !activeSessionId}
+              disabled={!input.trim() || isLoading}
             >
               <FiSend className="text-base sm:text-lg" />
             </button>
@@ -336,5 +337,5 @@ function App() {
     </div>
   );
 }
-
+ 
 export default App;
