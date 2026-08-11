@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { FiUser, FiLock, FiLogIn, FiZap } from 'react-icons/fi';
+import { FiMail, FiLock, FiLogIn, FiZap } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
 const Login = ({ onSwitchToRegister }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -13,8 +13,7 @@ const Login = ({ onSwitchToRegister }) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
-    const result = await login(username, password);
+    const result = await login(email, password);
     if (!result.success) {
       setError(result.error || 'بيانات الدخول غير صحيحة');
     }
@@ -40,14 +39,14 @@ const Login = ({ onSwitchToRegister }) => {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">اسم المستخدم</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">البريد الإلكتروني</label>
             <div className="flex items-center border border-slate-300 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-transparent">
-              <FiUser className="text-slate-400 mr-2" />
+              <FiMail className="text-slate-400 mr-2" />
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="أدخل اسم المستخدم"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@email.com"
                 className="w-full bg-transparent outline-none text-sm text-slate-900"
                 required
               />

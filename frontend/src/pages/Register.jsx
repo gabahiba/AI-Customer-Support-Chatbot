@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { FiUser, FiLock, FiMail, FiUserPlus, FiZap } from 'react-icons/fi';
+import { FiMail, FiLock, FiUser, FiUserPlus, FiZap } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
 const Register = ({ onSwitchToLogin }) => {
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -14,14 +13,12 @@ const Register = ({ onSwitchToLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
     if (password !== confirmPassword) {
       setError('كلمتا المرور غير متطابقتين');
       return;
     }
-
     setIsLoading(true);
-    const result = await register(username, email, password);
+    const result = await register(email, password);
     if (!result.success) {
       setError(result.error || 'فشل إنشاء الحساب');
     }
@@ -45,21 +42,6 @@ const Register = ({ onSwitchToLogin }) => {
               {error}
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">اسم المستخدم</label>
-            <div className="flex items-center border border-slate-300 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-transparent">
-              <FiUser className="text-slate-400 mr-2" />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="اختر اسم مستخدم"
-                className="w-full bg-transparent outline-none text-sm text-slate-900"
-                required
-              />
-            </div>
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">البريد الإلكتروني</label>

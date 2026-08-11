@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud, FiMenu } from 'react-icons/fi';
+import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud, FiMenu, FiLogOut } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import Sidebar from './components/Sidebar';
+import { useAuth } from './context/AuthContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import {
   sendMessage,
   uploadPdf,
@@ -14,7 +17,12 @@ import {
   getSessionMessages,
 } from './services/api';
 
-function App() {
+// ============================================================
+// مكون الدردشة الرئيسي (يظهر فقط عند تسجيل الدخول)
+// ============================================================
+function ChatApp() {
+  const { user, logout } = useAuth();
+  
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -28,14 +36,6 @@ function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [browserId, setBrowserId] = useState(() => {
-    let storedId = localStorage.getItem('chat-browser-id');
-    if (!storedId) {
-      storedId = crypto.randomUUID();
-      localStorage.setItem('chat-browser-id', storedId);
-    }
-    return storedId;
-  });
 
   const messagesEndRef = useRef(null);
 
@@ -45,7 +45,7 @@ function App() {
 
   useEffect(() => {
     loadSessions();
-  }, [browserId]);
+  }, []);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -62,7 +62,7 @@ function App() {
   const loadSessions = async () => {
     setIsLoadingSessions(true);
     try {
-      const data = await getSessions(browserId);
+      const data = await getSessions();
       setSessions(data);
       if (data.length > 0 && !activeSessionId) {
         setActiveSessionId(data[0].session_id);
@@ -132,7 +132,7 @@ function App() {
   };
 
   const handleSend = async () => {
-    if (input.trim() === '' || isLoading) return; // تم إزالة !activeSessionId
+    if (input.trim() === '' || isLoading || !activeSessionId) return;
 
     const userMessage = { role: 'user', content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -140,7 +140,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await sendMessage(activeSessionId || browserId, input); // استخدام browserId كبديل
+      const response = await sendMessage(activeSessionId, input);
       const botMessage = { role: 'assistant', content: response.response };
       setMessages((prev) => [...prev, botMessage]);
       await loadSessions();
@@ -182,6 +182,7 @@ function App() {
     setIsDarkMode((prev) => !prev);
   };
 
+  // ========== الثيمات ==========
   const shellBg = isDarkMode
     ? 'bg-black text-white'
     : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_30%),linear-gradient(135deg,_#f8fbff_0%,_#f5f7fb_60%,_#eef2ff_100%)] text-slate-900';
@@ -243,11 +244,24 @@ function App() {
             >
               {isDarkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-slate-600 text-xl" />}
             </button>
+
+            <span className="text-sm font-medium hidden sm:block">
+              {user?.email || user?.displayName}
+            </span>
           </div>
 
-          <div className="text-right">
-            <div className="text-base sm:text-lg font-semibold">مرحباً بك</div>
-            <div className={`text-xs sm:text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <div className="text-base sm:text-lg font-semibold">مرحباً بك</div>
+              <div className={`text-xs sm:text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
+            </div>
+            <button
+              onClick={logout}
+              className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
+              title="تسجيل الخروج"
+            >
+              <FiLogOut className="text-xl" />
+            </button>
           </div>
         </header>
 
@@ -318,8 +332,7 @@ function App() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="اكتب رسالتك هنا..."
                 className={`flex-1 bg-transparent text-xs sm:text-sm outline-none placeholder:font-light ${isDarkMode ? 'placeholder-slate-500' : 'placeholder-slate-400'}`}
-                // تم تعليق السطر التالي لإزالة التعطيل
-                // disabled={!activeSessionId}
+                disabled={!activeSessionId}
               />
               <FiUploadCloud className={`text-base sm:text-lg ${mutedText}`} />
             </div>
@@ -327,7 +340,7 @@ function App() {
             <button
               onClick={handleSend}
               className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 transition disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || isLoading || !activeSessionId}
             >
               <FiSend className="text-base sm:text-lg" />
             </button>
@@ -337,5 +350,34 @@ function App() {
     </div>
   );
 }
- 
+
+// ============================================================
+// المكون الرئيسي (يختار بين صفحة المصادقة والدردشة)
+// ============================================================
+function App() {
+  const { user, loading } = useAuth();
+  const [authView, setAuthView] = useState('login'); // 'login' أو 'register'
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-black">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-sky-500 mx-auto"></div>
+          <p className="mt-4 text-slate-500 dark:text-slate-400">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    if (authView === 'login') {
+      return <Login onSwitchToRegister={() => setAuthView('register')} />;
+    } else {
+      return <Register onSwitchToLogin={() => setAuthView('login')} />;
+    }
+  }
+
+  return <ChatApp />;
+}
+
 export default App;
