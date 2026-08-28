@@ -1,29 +1,32 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy import desc
 from app.database import database
 from app.models import Conversation, Session
 from app.schemas import ChatRequest, ChatResponse
 from app.services.gemini_service import get_gemini_response
 from app.rag_service import retrieve_context
+from app.firebase_auth import get_current_user
 
-router = APIRouter(
-    prefix="/chat",
-    tags=["Chat"]
-)
+router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.post("/", response_model=ChatResponse)
-async def send_message(request: ChatRequest):
+async def send_message(request: ChatRequest, current_user: dict = Depends(get_current_user)):
+    uid = current_user["uid"]
     if not request.message or request.message.strip() == "":
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    # التأكد من وجود الجلسة (إنشاءها تلقائياً)
-    check_session = Session.__table__.select().where(Session.session_id == request.session_id)
+    # التحقق من وجود الجلسة لهذا المستخدم
+    check_session = Session.__table__.select().where(
+        Session.session_id == request.session_id,
+        Session.firebase_uid == uid
+    )
     existing_session = await database.fetch_one(check_session)
     if not existing_session:
         title = request.message[:30] + ("..." if len(request.message) > 30 else "")
         insert_session = Session.__table__.insert().values(
             session_id=request.session_id,
-            title=title
+            title=title,
+            firebase_uid=uid
         )
         await database.execute(insert_session)
 
@@ -35,17 +38,15 @@ async def send_message(request: ChatRequest):
     )
     await database.execute(query)
 
-    # جلب آخر 5 رسائل (الذاكرة)
+    # جلب السياق
     select_query = Conversation.__table__.select() \
         .where(Conversation.session_id == request.session_id) \
         .order_by(desc(Conversation.created_at)) \
         .limit(5)
     recent_messages = await database.fetch_all(select_query)
 
-    # جلب المستندات ذات الصلة (RAG)
     retrieved_docs = await retrieve_context(request.message)
 
-    # بناء الموجه (Prompt)
     system_instruction = """
     أنت مساعد ذكي ومفيد جداً، تتحدث جميع اللغات بطلاقة.
     يجب أن ترد دائماً بنفس اللغة التي كتب بها المستخدم سؤاله.
@@ -68,7 +69,6 @@ async def send_message(request: ChatRequest):
 
     full_prompt = f"{system_instruction}\n\n{context_text}\n\nسؤال المستخدم: {request.message}\n\nالمساعد:"
 
-    # استدعاء Gemini
     ai_response = await get_gemini_response(full_prompt)
 
     # تخزين رد البوت
