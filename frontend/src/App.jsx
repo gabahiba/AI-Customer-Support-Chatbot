@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud, FiMenu, FiLogOut } from 'react-icons/fi';
+import { FiSend, FiPaperclip, FiMessageCircle, FiLoader, FiMoon, FiSun, FiZap, FiUploadCloud, FiMenu } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import Sidebar from './components/Sidebar';
-import { useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import Register from './pages/Register';
 import {
   sendMessage,
   uploadPdf,
@@ -17,12 +14,7 @@ import {
   getSessionMessages,
 } from './services/api';
 
-// ============================================================
-// مكون الدردشة الرئيسي (يظهر فقط عند تسجيل الدخول)
-// ============================================================
-function ChatApp() {
-  const { user, logout } = useAuth();
-  
+function App() {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -36,6 +28,14 @@ function ChatApp() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [browserId, setBrowserId] = useState(() => {
+    let storedId = localStorage.getItem('chat-browser-id');
+    if (!storedId) {
+      storedId = crypto.randomUUID();
+      localStorage.setItem('chat-browser-id', storedId);
+    }
+    return storedId;
+  });
 
   const messagesEndRef = useRef(null);
 
@@ -45,7 +45,7 @@ function ChatApp() {
 
   useEffect(() => {
     loadSessions();
-  }, []);
+  }, [browserId]);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -62,7 +62,7 @@ function ChatApp() {
   const loadSessions = async () => {
     setIsLoadingSessions(true);
     try {
-      const data = await getSessions();
+      const data = await getSessions(browserId);
       setSessions(data);
       if (data.length > 0 && !activeSessionId) {
         setActiveSessionId(data[0].session_id);
@@ -76,7 +76,7 @@ function ChatApp() {
 
   const loadSessionMessages = async (sessionId) => {
     try {
-      const data = await getSessionMessages(sessionId);
+      const data = await getSessionMessages(sessionId, browserId);
       setMessages(data);
     } catch (error) {
       console.error('فشل في تحميل الرسائل:', error);
@@ -87,7 +87,7 @@ function ChatApp() {
   const handleNewChat = async () => {
     try {
       const newSessionId = crypto.randomUUID();
-      const newSession = await createSession(newSessionId, 'محادثة جديدة');
+      const newSession = await createSession(newSessionId, 'محادثة جديدة', browserId);
       setSessions((prev) => [newSession, ...prev]);
       setActiveSessionId(newSessionId);
       setMessages([]);
@@ -105,7 +105,7 @@ function ChatApp() {
 
   const handleRenameSession = async (sessionId, newTitle) => {
     try {
-      await updateSessionTitle(sessionId, newTitle);
+      await updateSessionTitle(sessionId, newTitle, browserId);
       setSessions((prev) => prev.map((s) => (s.session_id === sessionId ? { ...s, title: newTitle } : s)));
     } catch (error) {
       console.error('فشل في تغيير الاسم:', error);
@@ -115,7 +115,7 @@ function ChatApp() {
   const handleDeleteSession = async (sessionId) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه المحادثة؟')) return;
     try {
-      await deleteSession(sessionId);
+      await deleteSession(sessionId, browserId);
       const updatedSessions = sessions.filter((s) => s.session_id !== sessionId);
       setSessions(updatedSessions);
       if (sessionId === activeSessionId) {
@@ -140,7 +140,7 @@ function ChatApp() {
     setIsLoading(true);
 
     try {
-      const response = await sendMessage(activeSessionId, input);
+      const response = await sendMessage(activeSessionId, input, browserId);
       const botMessage = { role: 'assistant', content: response.response };
       setMessages((prev) => [...prev, botMessage]);
       await loadSessions();
@@ -243,24 +243,11 @@ function ChatApp() {
             >
               {isDarkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-slate-600 text-xl" />}
             </button>
-
-            <span className="text-sm font-medium hidden sm:block">
-              {user?.email || user?.displayName}
-            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <div className="text-base sm:text-lg font-semibold">مرحباً بك</div>
-              <div className={`text-xs sm:text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
-            </div>
-            <button
-              onClick={logout}
-              className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
-              title="تسجيل الخروج"
-            >
-              <FiLogOut className="text-xl" />
-            </button>
+          <div className="text-right">
+            <div className="text-base sm:text-lg font-semibold">مرحباً بك</div>
+            <div className={`text-xs sm:text-sm font-light ${mutedText}`}>مساعدك الذكي</div>
           </div>
         </header>
 
@@ -348,35 +335,6 @@ function ChatApp() {
       </div>
     </div>
   );
-}
-
-// ============================================================
-// المكون الرئيسي (يختار بين صفحة المصادقة والدردشة)
-// ============================================================
-function App() {
-  const { user, loading } = useAuth();
-  const [authView, setAuthView] = useState('login');
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-black">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-sky-500 mx-auto"></div>
-          <p className="mt-4 text-slate-500 dark:text-slate-400">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    if (authView === 'login') {
-      return <Login onSwitchToRegister={() => setAuthView('register')} />;
-    } else {
-      return <Register onSwitchToLogin={() => setAuthView('login')} />;
-    }
-  }
-
-  return <ChatApp />;
 }
 
 export default App;

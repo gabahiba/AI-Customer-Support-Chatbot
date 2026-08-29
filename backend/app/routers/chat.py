@@ -1,24 +1,22 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import desc
 from app.database import database
 from app.models import Conversation, Session
 from app.schemas import ChatRequest, ChatResponse
 from app.services.gemini_service import get_gemini_response
 from app.rag_service import retrieve_context
-from app.firebase_auth import get_current_user
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.post("/", response_model=ChatResponse)
-async def send_message(request: ChatRequest, current_user: dict = Depends(get_current_user)):
-    uid = current_user["uid"]
+async def send_message(request: ChatRequest):
     if not request.message or request.message.strip() == "":
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    # التحقق من وجود الجلسة لهذا المستخدم
+    # التحقق من وجود الجلسة للمتصفح
     check_session = Session.__table__.select().where(
         Session.session_id == request.session_id,
-        Session.firebase_uid == uid
+        Session.browser_id == request.browser_id
     )
     existing_session = await database.fetch_one(check_session)
     if not existing_session:
@@ -26,7 +24,7 @@ async def send_message(request: ChatRequest, current_user: dict = Depends(get_cu
         insert_session = Session.__table__.insert().values(
             session_id=request.session_id,
             title=title,
-            firebase_uid=uid
+            browser_id=request.browser_id
         )
         await database.execute(insert_session)
 
