@@ -26,7 +26,7 @@ app.include_router(sessions.router)
 
 @app.on_event("startup")
 async def startup():
-    # 🔥 حذف قاعدة البيانات القديمة إذا كانت موجودة
+    # 🔥 هذا السطور ستحذف قاعدة البيانات القديمة تلقائياً
     db_file = Path("chatbot.db")
     if db_file.exists():
         os.remove(db_file)
