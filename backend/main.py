@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import database, engine, Base
 from app import models
 from app.routers import chat, upload, sessions
+import os
+from pathlib import Path
 
 app = FastAPI(
     title="AI Customer Support Chatbot API",
@@ -24,8 +26,15 @@ app.include_router(sessions.router)
 
 @app.on_event("startup")
 async def startup():
+    # حذف قاعدة البيانات القديمة إذا كانت موجودة (لإعادة إنشائها بالهيكل الجديد)
+    db_file = Path("chatbot.db")
+    if db_file.exists():
+        os.remove(db_file)
+        print("🗑️ Old database deleted. Creating a new one with the correct schema.")
+    
     await database.connect()
     Base.metadata.create_all(bind=engine)
+    print("✅ Database initialized with new schema.")
 
 @app.on_event("shutdown")
 async def shutdown():
