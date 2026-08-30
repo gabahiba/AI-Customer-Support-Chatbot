@@ -26,11 +26,11 @@ app.include_router(sessions.router)
 
 @app.on_event("startup")
 async def startup():
-    # حذف قاعدة البيانات القديمة إذا كانت موجودة (لإعادة إنشائها بالهيكل الجديد)
+    # 🔥 حذف قاعدة البيانات القديمة إذا كانت موجودة
     db_file = Path("chatbot.db")
     if db_file.exists():
         os.remove(db_file)
-        print("🗑️ Old database deleted. Creating a new one with the correct schema.")
+        print("🗑️ Old database deleted. Creating a new one...")
     
     await database.connect()
     Base.metadata.create_all(bind=engine)
