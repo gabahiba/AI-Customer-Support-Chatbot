@@ -13,6 +13,8 @@ async def send_message(request: ChatRequest):
     if not request.message or request.message.strip() == "":
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
+        browser_id = request.browser_id or "unknown"
+
     # التحقق من وجود الجلسة للمتصفح
     check_session = Session.__table__.select().where(
         Session.session_id == request.session_id,
@@ -24,7 +26,7 @@ async def send_message(request: ChatRequest):
         insert_session = Session.__table__.insert().values(
             session_id=request.session_id,
             title=title,
-            browser_id=request.browser_id
+            browser_id=browser_id 
         )
         await database.execute(insert_session)
 

@@ -16,7 +16,7 @@ export const sendMessage = async (sessionId, message, browserId) => {
     const response = await apiClient.post('/chat/', {
       session_id: sessionId,
       message: message,
-      browser_id: browserId,
+      browser_id: browserId || 'unknown',
     });
     return response.data;
   } catch (error) {

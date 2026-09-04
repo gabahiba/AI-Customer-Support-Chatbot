@@ -2,11 +2,12 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
+
 # ============ Chat Schemas ============
 class ChatRequest(BaseModel):
     session_id: str
     message: str
-    browser_id: Optional[str] = None
+    browser_id: Optional[str] = None  # اختياري، لكن يجب أن يكون موجوداً عند الإرسال
 
 class ChatResponse(BaseModel):
     session_id: str
