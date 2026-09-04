@@ -113,23 +113,23 @@ function App() {
   };
 
   const handleDeleteSession = async (sessionId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه المحادثة؟')) return;
-    try {
-      await deleteSession(sessionId, browserId);
-      const updatedSessions = sessions.filter((s) => s.session_id !== sessionId);
-      setSessions(updatedSessions);
-      if (sessionId === activeSessionId) {
-        if (updatedSessions.length > 0) {
-          setActiveSessionId(updatedSessions[0].session_id);
-        } else {
-          setActiveSessionId(null);
-          setMessages([]);
-        }
+  if (!window.confirm('هل أنت متأكد من حذف هذه المحادثة؟')) return;
+  try {
+    await deleteSession(sessionId, browserId); // ✅ تمرير browserId
+    const updatedSessions = sessions.filter((s) => s.session_id !== sessionId);
+    setSessions(updatedSessions);
+    if (sessionId === activeSessionId) {
+      if (updatedSessions.length > 0) {
+        setActiveSessionId(updatedSessions[0].session_id);
+      } else {
+        setActiveSessionId(null);
+        setMessages([]);
       }
-    } catch (error) {
-      console.error('فشل في حذف المحادثة:', error);
     }
-  };
+  } catch (error) {
+    console.error('فشل في حذف المحادثة:', error);
+  }
+};
 
   const handleSend = async () => {
     if (input.trim() === '' || isLoading || !activeSessionId) return;
